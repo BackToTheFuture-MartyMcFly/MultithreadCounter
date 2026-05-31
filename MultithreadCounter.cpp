@@ -6,8 +6,6 @@ BackgroundCounter::BackgroundCounter(int target) : m_target(target), m_value(0),
 
 BackgroundCounter::~BackgroundCounter() {
 	stop();
-	if (workerThread.joinable())
-		workerThread.join();		//you don`t need to specify join  (std::jthread C++20)
 }
 
 void BackgroundCounter::start() {
@@ -91,15 +89,15 @@ void Counter::worker(std::stop_token st) {
 		}
 
 		if (m_value >= m_target) {
-			std::cout << "In thread" << id << " Target reached " << m_target << std::endl;
+			std::cout << "In thread " << id << " Target reached " << m_target << " value: " << m_value << std::endl;
 			break;
 		}
 
 		++m_value;
 		int currentValue = m_value;
-		lock.unlock();
 
 		std::cout << "Counter " << id << ": " << currentValue << std::endl;
+		lock.unlock();
 		std::this_thread::sleep_for(std::chrono::seconds(2));
 	}
 }
@@ -147,6 +145,11 @@ void CounterManager::createCounter(uint64_t id, int target) {
 	if (counters.contains(id))
 		return;
 	counters[id] = std::make_unique<Counter>(id, target);
+}
+
+void CounterManager::startCounter(uint64_t id) {
+	auto pCounter = findCounter(id);
+	if (pCounter) pCounter->start();
 }
 
 void CounterManager::pauseCounter(uint64_t id) {

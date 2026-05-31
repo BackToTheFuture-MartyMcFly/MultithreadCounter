@@ -67,6 +67,7 @@ public:
 	~CounterManager();
 
 	void createCounter(uint64_t id, int target = defaultTarget);
+	void startCounter(uint64_t id);
 	void pauseCounter(uint64_t id);
 	void resumeCounter(uint64_t id);
 	void stopCounter(uint64_t id);

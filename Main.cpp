@@ -1,5 +1,3 @@
-
-#include <variant>
 #include "MultithreadCounter.h"
 
 
@@ -37,62 +35,78 @@ std::optional<int> tryToInt(const std::string& str) {
 	try {
 		size_t pos;
 		int value = std::stoi(str, &pos);
-		if (pos == str.length()) {
-			return value;
-		}
+		return (pos == str.length()) ? std::optional{ value } : std::nullopt;
 	}
-	catch (const std::invalid_argument&) { }
-	catch (const std::out_of_range&) {}
-	return std::nullopt;
-}
-
-using Variant = std::variant<std::string, int>;
-
-std::optional<std::vector<Variant>> parceCmd(std::string_view sv) {
-	if (sv.empty())
+	catch (...) {
 		return std::nullopt;
-	std::vector<Variant> result;
-	auto pos1 = sv.find_first_of(' ');
-	if (pos1 == std::string::npos) {
-		result.push_back(std::string(sv.substr(0, pos1)));
-		return result;
 	}
-	auto pos2 = sv.find_first_of(pos1, ' ');
-	std::string intStr = std::string(sv.substr(pos1 + 1, pos2));
-	auto res = tryToInt(intStr);
-	if (res.has_value())
-		result.push_back(res.value());
-	else
-		result.push_back("");
-	return result;
 }
 
-void goMultiply(int count) {
-	CounterManager counterManager;
-	for (int i = 0; i < count; ++i)
-		counterManager.createCounter(i);
+void goMultiply() {
+	CounterManager manager;
 
-	std::string cmd;
-	while (std::cin >> cmd) {
+	// Создаём несколько счётчиков
+	manager.createCounter(1, 5);      // счётчик 1 до 5
+	manager.createCounter(2, 3);      // счётчик 2 до 3
+	manager.createCounter(3, 10);     // счётчик 3 до 10
 
-			
-	
-	}
-	
+	// Запускаем все счётчики
+	manager.startCounter(1);
+	manager.startCounter(2);
+	manager.startCounter(3);
 
+	// Даём поработать 3 секунды
+	std::this_thread::sleep_for(std::chrono::seconds(3));
+	std::cout << "\n--- After 3 seconds ---\n";
+	manager.printStatusCounters();
+
+	// Ставим счётчик 1 на паузу на 4 секунды
+	std::cout << "\n--- Pause the counter 1 from 4 seconds ---\n";
+	manager.pauseCounter(1);
+	std::this_thread::sleep_for(std::chrono::seconds(4));
+	manager.resumeCounter(1);
+
+	// Даём поработать ещё 2 секунды
+	std::this_thread::sleep_for(std::chrono::seconds(2));
+	std::cout << "\n--- After pause and resume ---\n";
+	manager.printStatusCounters();
+
+	// Останавливаем счётчик 2
+	std::cout << "\n--- Stopping counter 2 ---\n";
+	manager.stopCounter(2);
+
+	// Даём поработать ещё 3 секунды
+	std::this_thread::sleep_for(std::chrono::seconds(3));
+	std::cout << "\n--- Final status ---\n";
+	manager.printStatusCounters();
+
+	// Останавливаем все счётчики
+	std::cout << "\n--- Stopping all counters ---\n";
+	manager.stopAllCounters();
+
+	// Показываем, что менеджер пуст
+	manager.printStatusCounters();
+
+	std::cout << "\nProgramm done.\n";	
 }
-
-using Variant = std::variant<std::string, int>;
-
+	
 int main() {
 	
-	std::string str = "qwerty";
-	std::string_view sv(str);
-	std::vector<Variant> res = parceCmd(sv).value();
-	for (const auto& i : res)
-		std::cout << std::visit([](auto&& arg) { return arg; }, i) << std::endl;
-
+	std::cout << "Choose the mode: single - s or multiply - m" << std::endl;
+	char mode;
+	while (std::cin >> mode) {
+		switch (mode) {
+		case 's':
+			goSingle();
+			return 0;
+		case 'm':
+			goMultiply();
+			return 0;
+		default:
+			std::cout << "Enter the coorect command" << std::endl;
+			break;
+		}
+	}
 
 	return 0;
-
 }
