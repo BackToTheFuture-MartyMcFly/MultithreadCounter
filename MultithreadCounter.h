@@ -8,12 +8,15 @@
 #include <chrono>
 #include <unordered_map>
 #include <memory>
+#include <climits>
 
 static int defaultTarget = INT_MAX;
 
 class BackgroundCounter {
+	friend class CounterManager;
 protected:
 	std::jthread workerThread;
+	static std::mutex coutMutex;
 	mutable std::mutex mutex;
 	std::condition_variable cv;
 	bool m_paused = false;

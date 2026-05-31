@@ -1,5 +1,7 @@
 #include "MultithreadCounter.h"
 
+std::mutex BackgroundCounter::coutMutex;
+
 BackgroundCounter::BackgroundCounter() : m_target(defaultTarget), m_value(0), m_paused(false), m_stopped(false) {}
 
 BackgroundCounter::BackgroundCounter(int target) : m_target(target), m_value(0), m_paused(false), m_stopped(false) {}
@@ -15,9 +17,14 @@ void BackgroundCounter::start() {
 }
 
 void BackgroundCounter::pause() {
-	std::lock_guard<std::mutex> lock(mutex);
-	m_paused = true;
-	std::cout << "Paused" << std::endl;
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		m_paused = true;
+	}
+	{
+		std::lock_guard<std::mutex> coutLock(coutMutex);
+		std::cout << "Paused" << std::endl;
+	}
 }
 
 void BackgroundCounter::resume() {
@@ -26,7 +33,10 @@ void BackgroundCounter::resume() {
 		m_paused = false;
 	}
 	cv.notify_one();
-	std::cout << "Resumed" << std::endl;
+	{
+		std::lock_guard<std::mutex> coutLock(coutMutex);
+		std::cout << "Resumed" << std::endl;
+	}
 }
 
 void BackgroundCounter::stop() {
@@ -53,11 +63,13 @@ void BackgroundCounter::worker(std::stop_token st) {
 		cv.wait(lock, [this, &st]() {return !m_paused || m_stopped || st.stop_requested(); });
 
 		if (m_stopped) {
-			std::cout << "Thread stppped" << std::endl;
+			std::lock_guard<std::mutex> coutLock(coutMutex);
+			std::cout << "Thread stopped" << std::endl;
 			break;
 		}
 
 		if (m_value >= m_target) {
+			std::lock_guard<std::mutex> coutLock(coutMutex);
 			std::cout << "Target reached " << m_target << std::endl;
 			break;
 		}
@@ -65,8 +77,11 @@ void BackgroundCounter::worker(std::stop_token st) {
 		++m_value;
 		int currentValue = m_value;
 		lock.unlock();
-
-		std::cout << "Counter: " << currentValue << std::endl;
+		{
+			std::lock_guard<std::mutex> coutLock(coutMutex);
+			std::cout << "Counter: " << currentValue << std::endl;
+		}
+		
 		std::this_thread::sleep_for(std::chrono::seconds(2));
 	}
 
@@ -84,20 +99,25 @@ void Counter::worker(std::stop_token st) {
 		cv.wait(lock, [this, &st]() { return !m_paused || m_stopped || st.stop_requested(); });
 
 		if (m_stopped) {
-			std::cout << "Thread " << id << " is stppped" << std::endl;
+			std::lock_guard<std::mutex> coutLock(coutMutex);
+			std::cout << "Thread " << id << " is stopped" << std::endl;
 			break;
 		}
 
 		if (m_value >= m_target) {
+			std::lock_guard<std::mutex> coutLock(coutMutex);
 			std::cout << "In thread " << id << " Target reached " << m_target << " value: " << m_value << std::endl;
 			break;
 		}
 
 		++m_value;
 		int currentValue = m_value;
-
-		std::cout << "Counter " << id << ": " << currentValue << std::endl;
 		lock.unlock();
+		{
+			std::lock_guard<std::mutex> coutLock(coutMutex);
+			std::cout << "Counter " << id << ": " << currentValue << std::endl;
+		
+		}
 		std::this_thread::sleep_for(std::chrono::seconds(2));
 	}
 }
@@ -109,9 +129,14 @@ void Counter::start() {
 }
 
 void Counter::pause() {
-	std::lock_guard<std::mutex> lock(mutex);
-	m_paused = true;
-	std::cout << "Counter " << id << " stopped" << std::endl;
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		m_paused = true;
+	}
+	{
+		std::lock_guard<std::mutex> coutLock(coutMutex);
+		std::cout << "Counter " << id << " stopped" << std::endl;
+	}
 }
 
 void Counter::resume() {
@@ -120,7 +145,10 @@ void Counter::resume() {
 		m_paused = false;
 	}
 	cv.notify_one();
-	std::cout << "Counter " << id << " resume" << std::endl;
+	{
+		std::lock_guard<std::mutex> coutLock(coutMutex);
+		std::cout << "Counter " << id << " resume" << std::endl;
+	}
 }
 
 void Counter::stop() {
@@ -175,6 +203,9 @@ void CounterManager::stopAllCounters() {
 
 void CounterManager::printStatusCounters() const {
 	std::lock_guard<std::mutex> lock(mutex);
-	for (const auto& [id, counter] : counters)
+	for (const auto& [id, counter] : counters) {
+		std::lock_guard<std::mutex> coutLock(BackgroundCounter::coutMutex);
 		std::cout << "Counter " << id << ": " << counter->getValue() << std::endl;
+	}
+		
 }
